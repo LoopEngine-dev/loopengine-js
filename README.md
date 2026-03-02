@@ -80,6 +80,93 @@ const result = await client.send(
 );
 ```
 
+## Verifying webhook payloads
+
+When LoopEngine delivers a webhook to your endpoint, it signs the request with HMAC-SHA256 using a **signing secret** that only you and LoopEngine know. Verifying that signature before processing the event confirms the request came from LoopEngine, was not tampered with, and — by also checking the timestamp — limits replay attacks.
+
+**Get the secret:** In your dashboard, open your project → Webhooks. The signing secret (`whsec_live_...`) is shown when you create or rotate the webhook. Store it as an environment variable and never commit it.
+
+**Critical:** call `verifyWebhook` with the raw request body bytes **before** any JSON parsing. The signature is computed over the exact bytes received; re-serialising the parsed payload will produce a different result and fail verification.
+
+```ts
+import { verifyWebhook } from '@loopengine/sdk';
+```
+
+### Parameters
+
+| Parameter | Type | Description |
+|---|---|---|
+| `secret` | `string` | Signing secret from the dashboard (`whsec_live_...`) |
+| `rawBody` | `Uint8Array \| string` | Raw HTTP body as received, before any JSON parsing |
+| `signatureHeader` | `string` | Full value of the `X-LoopEngine-Signature` header |
+| `timestampHeader` | `string` | Value of the `X-LoopEngine-Timestamp` header (Unix seconds) |
+| `maxAgeSec` | `number` (optional) | Max timestamp age in seconds; default `300`. Pass `0` to skip. |
+
+**Returns:** `Promise<boolean>` — `true` if valid, `false` if the signature does not match or the timestamp is outside the allowed window.
+
+### Express example
+
+Install a raw-body middleware so you have access to the unmodified bytes:
+
+```bash
+npm install body-parser
+```
+
+```ts
+import express from 'express';
+import { verifyWebhook } from '@loopengine/sdk';
+
+const app = express();
+
+// Use express.raw() (or body-parser's equivalent) on the webhook route
+// so req.body is a Buffer — do NOT use express.json() before verifyWebhook.
+app.post(
+  '/webhook',
+  express.raw({ type: 'application/json' }),
+  async (req, res) => {
+    const valid = await verifyWebhook(
+      process.env.LOOPENGINE_WEBHOOK_SECRET!,
+      req.body,                                           // raw Buffer, not parsed
+      req.headers['x-loopengine-signature'] as string,
+      req.headers['x-loopengine-timestamp'] as string,
+    );
+
+    if (!valid) {
+      return res.status(401).send('Invalid signature');
+    }
+
+    const event = JSON.parse(req.body.toString('utf8')); // parse AFTER verifying
+    console.log(event.type);
+    res.sendStatus(200);
+  }
+);
+```
+
+### Edge / serverless example (Cloudflare Workers, Deno, etc.)
+
+```ts
+import { verifyWebhook } from '@loopengine/sdk';
+
+export default {
+  async fetch(request: Request): Promise<Response> {
+    const rawBody = new Uint8Array(await request.arrayBuffer());
+
+    const valid = await verifyWebhook(
+      SECRET,
+      rawBody,
+      request.headers.get('x-loopengine-signature') ?? '',
+      request.headers.get('x-loopengine-timestamp') ?? '',
+    );
+
+    if (!valid) return new Response('Invalid signature', { status: 401 });
+
+    const event = JSON.parse(new TextDecoder().decode(rawBody));
+    // handle event …
+    return new Response('OK');
+  },
+};
+```
+
 ## Requirements
 
 - Node.js **>= 18.0.0**

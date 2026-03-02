@@ -10,6 +10,7 @@
  */
 
 export { LoopEngine } from './client.js';
+export { verifyWebhook } from './webhook.js';
 export type {
   LoopEngineConfig,
   FeedbackPayload,
