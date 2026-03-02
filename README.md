@@ -62,6 +62,23 @@ const client = new LoopEngine({
 
 The payload object must match the fields and constraints you defined when creating your project in the LoopEngine dashboard. At a minimum, it should include all the required fields according to your project's schema. `project_id` is automatically appended to each payload by the SDK.
 
+## Geolocation
+
+You can send device location so feedback is associated with coordinates instead of IP-based geo. Pass an optional second argument to `send()` with `geoLat` and `geoLon`. When **both** are provided and finite, the SDK adds `geo_lat` and `geo_lon` to the request body; they are included in the HMAC signature. Omit the second argument (or omit geo fields) to use IP-based geolocation. The API expects valid ranges: latitude -90 to 90, longitude -180 to 180.
+
+```ts
+// Without geo (IP-based location is used)
+const result = await client.send({ message: 'Feedback' });
+
+// With device coordinates (e.g. from navigator.geolocation)
+const { coords } = await new Promise<GeolocationPosition>((res, rej) =>
+  navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 })
+);
+const result = await client.send(
+  { message: 'Bug at my location' },
+  { geoLat: coords.latitude, geoLon: coords.longitude }
+);
+```
 
 ## Requirements
 

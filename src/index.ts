@@ -13,6 +13,7 @@ export { LoopEngine } from './client.js';
 export type {
   LoopEngineConfig,
   FeedbackPayload,
+  SendOptions,
   SendResult,
   FeedbackResponse,
 } from './types.js';

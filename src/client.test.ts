@@ -56,4 +56,60 @@ describe('LoopEngine', () => {
     expect(result.status).toBe(400);
     expect(result.body).toEqual({ error: 'Bad request' });
   });
+
+  it('send() adds geo_lat and geo_lon to body when both options provided', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      text: () => Promise.resolve(JSON.stringify({ id: 'fb_1', analysis_status: 'pending' })),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const client = new LoopEngine(config);
+    await client.send(
+      { message: 'test' },
+      { geoLat: 34.05, geoLon: -118.25 }
+    );
+
+    const [, options] = mockFetch.mock.calls[0];
+    const body = JSON.parse(options.body);
+    expect(body.geo_lat).toBe(34.05);
+    expect(body.geo_lon).toBe(-118.25);
+    expect(body.project_id).toBe('proj_test');
+    expect(body.message).toBe('test');
+  });
+
+  it('send() omits geo when only one coordinate provided', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      text: () => Promise.resolve(JSON.stringify({ id: 'fb_1', analysis_status: 'pending' })),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const client = new LoopEngine(config);
+    await client.send({ message: 'test' }, { geoLat: 34.05 });
+
+    const [, options] = mockFetch.mock.calls[0];
+    const body = JSON.parse(options.body);
+    expect(body.geo_lat).toBeUndefined();
+    expect(body.geo_lon).toBeUndefined();
+  });
+
+  it('send() omits geo when coordinates are not finite', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      text: () => Promise.resolve(JSON.stringify({ id: 'fb_1', analysis_status: 'pending' })),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const client = new LoopEngine(config);
+    await client.send({ message: 'test' }, { geoLat: NaN, geoLon: -118.25 });
+
+    const [, options] = mockFetch.mock.calls[0];
+    const body = JSON.parse(options.body);
+    expect(body.geo_lat).toBeUndefined();
+    expect(body.geo_lon).toBeUndefined();
+  });
 });

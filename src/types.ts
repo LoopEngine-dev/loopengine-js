@@ -22,6 +22,18 @@ export interface FeedbackPayload {
 }
 
 /**
+ * Optional settings for send(). When both geoLat and geoLon are provided,
+ * they are added to the request body (geo_lat, geo_lon) and included in the HMAC signature.
+ * Omit or leave undefined to use IP-based geolocation.
+ */
+export interface SendOptions {
+  /** Latitude (-90 to 90). Only sent when both geoLat and geoLon are finite. */
+  geoLat?: number;
+  /** Longitude (-180 to 180). Only sent when both geoLat and geoLon are finite. */
+  geoLon?: number;
+}
+
+/**
  * Result of a send request.
  */
 export interface SendResult {
